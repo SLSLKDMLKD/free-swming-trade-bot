@@ -1,7 +1,7 @@
 """
-Quantum Alpha Swing Pro - Lite Edition [cite: 57]
-Lightweight Python trading system optimized for older CPUs and Free Cloud Hosting. [cite: 57]
-Features: Asyncio Trading Loop, SQLite Database, Flask Web Dashboard (Daemon Thread). [cite: 60, 74, 81, 82]
+Quantum Alpha Swing Pro - Lite Edition (Multi-Asset AI Engine)
+Lightweight Python trading system optimized for older CPUs and Free Cloud Hosting.
+Features: Asyncio Trading Loop, SQLite Database, Flask Web Dashboard (Daemon Thread).
 """
 import asyncio
 import aiohttp
@@ -23,15 +23,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger('QuantumAlphaLite')
 
 DB_FILE = 'trading.db'
-MODEL_FILE = 'model.pkl'
 INITIAL_BALANCE = 10000.0
 RISK_PERCENT = 0.02
-SYMBOLS = ['btcusdt']
+
+# Binance එකෙන් ලයිව් දුවන්න පුළුවන් Crypto විතරක් නිසා ප්‍රධාන Crypto යුගල 2ක් ඇතුළත් කර ඇත.
+SYMBOLS = ['btcusdt', 'ethusdt']
 
 # ==========================================
-# HTML TEMPLATE (FLASK UI - FIXED)
+# HTML TEMPLATE (FLASK UI)
 # ==========================================
-# මෙහි JavaScript වගු (Tables) වලට දත්ත එකතු වන HTML id ටැග් නිවැරදි කර ඇත.
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -52,7 +52,7 @@ HTML_TEMPLATE = """
     </style>
 </head>
 <body>
-    <h1>Quantum Alpha Swing Pro - Lite</h1>
+    <h1>Quantum Alpha Swing Pro - Lite (AI Multi-Model)</h1>
     <div class="dashboard-container">
         <div class="card">
             <h2>Account Balance</h2>
@@ -106,7 +106,6 @@ HTML_TEMPLATE = """
                 })
                 .catch(err => console.error("Error fetching data:", err));
         }
-        // Auto-refresh every 10 seconds without reloading the page
         setInterval(updateDashboard, 10000);
         updateDashboard();
     </script>
@@ -115,7 +114,7 @@ HTML_TEMPLATE = """
 """
 
 # ==========================================
-# FLASK WEB DASHBOARD (Daemon Thread & Dynamic Port)
+# FLASK WEB DASHBOARD
 # ==========================================
 app = Flask(__name__)
 
@@ -125,7 +124,6 @@ def index():
 
 @app.route('/api/data')
 def api_data():
-    """ඩේටාබේස් එක කියවා දත්ත Dashboard එකට ලබාදීම (Read-Only Mode)"""
     try:
         conn = sqlite3.connect(f"file:{DB_FILE}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
@@ -153,7 +151,6 @@ def api_data():
         return jsonify({'account': {'balance': INITIAL_BALANCE}, 'trades': [], 'signals': []})
 
 def run_flask():
-    """Render එකෙහි Free Tier එකට ගැළපෙන සේ ස්වයංක්‍රීයව Port එක හඳුනාගැනීම"""
     port = int(os.environ.get("PORT", 5000))
     logger.info(f"Starting Flask Dashboard on port {port}...")
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
@@ -181,32 +178,31 @@ def init_db():
     conn.close()
 
 # ==========================================
-# ASYNC TRADING BOT Engine
+# ASYNC TRADING BOT ENGINE
 # ==========================================
 class TradingBot:
     def __init__(self):
-        self.klines = {
-            '1h': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume']),
-            '4h': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume']),
-            '1d': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
-        }
-        self.model = self.load_model()
+        # එක් එක් සිම්බල් එකට වෙන වෙනම klines ගබඩා කරගැනීම
+        self.klines = {}
+        for sym in SYMBOLS:
+            self.klines[sym.upper()] = {
+                '1h': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume']),
+                '4h': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume']),
+                '1d': pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
+            }
         self.conn = sqlite3.connect(DB_FILE, check_same_thread=False)
         
-    def load_model(self):
-        """Offline පුහුණු කළ XGBoost මොඩලය පමණක් ලෝඩ් කරගැනීම"""
-        if os.path.exists(MODEL_FILE):
+    def load_model_for_asset(self, asset_name):
+        """ඇසට් එකේ නම අනුව අදාළ .pkl ෆයිල් එක ක්ෂණිකව ලෝඩ් කරගැනීම"""
+        model_file = f"model_{asset_name}.pkl"
+        if os.path.exists(model_file):
             try:
-                with open(MODEL_FILE, 'rb') as f:
-                    model = pickle.load(f)
-                logger.info(f"Loaded ML model from {MODEL_FILE}")
-                return model
+                with open(model_file, 'rb') as f:
+                    return pickle.load(f)
             except Exception as e:
-                logger.error(f"Failed to load model: {e}")
+                logger.error(f"Failed to load model for {asset_name}: {e}")
                 return None
-        else:
-            logger.warning(f"No pre-trained model found at {MODEL_FILE}. Using Technical Indicator Fallback mode.")
-            return None
+        return None
 
     def get_balance(self):
         c = self.conn.cursor()
@@ -250,7 +246,7 @@ class TradingBot:
         sl_dist = atr * 2.0
         
         if sl_dist == 0:
-            sl_dist = price * 0.02 # Safety proxy if ATR calculation is warming up
+            sl_dist = price * 0.02
             
         position_size = risk_amount / sl_dist
         
@@ -262,10 +258,14 @@ class TradingBot:
             tp = price - (sl_dist * 2.0)
             
         self.record_trade(symbol, side, price, position_size, sl, tp)
-        logger.info(f"[TRADE EXECUTED] {side} | Entry: {price:.2f} | SL: {sl:.2f} | TP: {tp:.2f}")
+        logger.info(f"[TRADE EXECUTED] {side} on {symbol} | Entry: {price:.2f} | SL: {sl:.2f} | TP: {tp:.2f}")
 
-    def get_ml_prediction(self, features):
-        if self.model is None:
+    def get_ml_prediction(self, asset_name, features):
+        """ලෝඩ් කරගත් නිවැරදි ඇසට් මොඩලය පාවිච්චි කර සිග්නල් ගැනීම"""
+        current_model = self.load_model_for_asset(asset_name)
+        
+        if current_model is None:
+            # මොඩල් එක නැත්නම් ආරක්ෂිත ක්‍රමය (RSI Fallback)
             rsi = features.get('rsi_1h', 50)
             if rsi < 30: return 'BUY'
             if rsi > 70: return 'SELL'
@@ -273,45 +273,50 @@ class TradingBot:
             
         try:
             df_features = pd.DataFrame([features])
-            pred = self.model.predict(df_features)
+            pred = current_model.predict(df_features)
             if pred == 1: return 'BUY'
             elif pred == -1 or pred == 2: return 'SELL'
             return 'HOLD'
         except Exception as e:
-            logger.error(f"ML prediction error: {e}")
+            logger.error(f"ML prediction error for {asset_name}: {e}")
             return 'HOLD'
 
     def process_closed_candle(self, symbol, tf, kline):
-        df = self.klines[tf]
+        sym_upper = symbol.upper()
+        if sym_upper not in self.klines:
+            return
+            
+        df = self.klines[sym_upper][tf]
         new_row = pd.DataFrame([{
             'open': float(kline['o']), 'high': float(kline['h']),
             'low': float(kline['l']), 'close': float(kline['c']), 'volume': float(kline['v'])
         }])
         
-        self.klines[tf] = pd.concat([df, new_row], ignore_index=True).tail(100)
+        self.klines[sym_upper][tf] = pd.concat([df, new_row], ignore_index=True).tail(100)
         
-        if tf == '1h' and len(self.klines['1h']) >= 15:
-            df_1h = self.klines['1h']
+        if tf == '1h' and len(self.klines[sym_upper]['1h']) >= 15:
+            df_1h = self.klines[sym_upper]['1h']
             atr_1h = self.calc_atr(df_1h)
             rsi_1h = self.calc_rsi(df_1h)
             close_price = float(kline['c'])
             
             features = {'rsi_1h': rsi_1h, 'atr_1h': atr_1h, 'close': close_price}
-            signal = self.get_ml_prediction(features)
+            
+            # මෙතැනදී symbol එක upper කරලා නිවැරදි මොඩලය වෙත යවයි (උදා: BTCUSDT)
+            signal = self.get_ml_prediction(sym_upper, features)
             
             if signal in ['BUY', 'SELL']:
-                logger.info(f"[SIGNAL] {signal} triggered at {close_price}")
-                self.record_signal(symbol, signal, close_price)
-                self.execute_trade(symbol, signal, close_price, atr_1h)
+                logger.info(f"[SIGNAL] {signal} triggered for {sym_upper} at {close_price}")
+                self.record_signal(sym_upper, signal, close_price)
+                self.execute_trade(sym_upper, signal, close_price, atr_1h)
 
     async def run(self):
-        """Binance WebSockets යුගලනය සඳහා වන ප්‍රධාන asynchronous loop එක"""
         streams = [f"{s}@kline_1h" for s in SYMBOLS] + \
                   [f"{s}@kline_4h" for s in SYMBOLS] + \
                   [f"{s}@kline_1d" for s in SYMBOLS]
                   
         stream_url = f"wss://stream.binance.com:9443/stream?streams={'/'.join(streams)}"
-        logger.info("Connecting to Binance Async WebSocket Feed...")
+        logger.info("Connecting to Binance Multi-Asset WebSocket Feed...")
         
         async with aiohttp.ClientSession() as session:
             while True:
@@ -324,7 +329,6 @@ class TradingBot:
                                 stream_name = data.get('stream', '')
                                 kline_data = data.get('data', {}).get('k', {})
                                 
-                                # කැන්ඩල් එකක් ක්ලෝස් වූ විට පමණක් ගණනය කිරීම් සිදු කරයි (Saves CPU)
                                 if kline_data.get('x'):
                                     tf = stream_name.split('_')[-1]
                                     symbol = kline_data.get('s', 'UNKNOWN')
@@ -338,14 +342,11 @@ class TradingBot:
 # APPLICATION ENTRY POINT
 # ==========================================
 if __name__ == '__main__':
-    # 1. Initialize SQLite Database Tables
     init_db()
     
-    # 2. Start Flask Dashboard inside a background daemon thread
     flask_thread = threading.Thread(target=run_flask, daemon=True)
     flask_thread.start()
     
-    # 3. Execute Asyncio Trading Bot Engine on Main Thread
     bot = TradingBot()
     try:
         asyncio.run(bot.run())

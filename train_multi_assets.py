@@ -13,7 +13,19 @@ ASSETS = {
     "GOLD": "GC=F",
     "EURUSD": "EURUSD=X",
     "GBPUSD": "GBPUSD=X",
-    "APPLE": "AAPL"
+    "APPLE": "AAPL",
+    # ---- අලුතින් එකතු කරන ක්‍රිප්ටෝ කොයින්ස් 30 (Yahoo Finance Symbols) ----
+    "ETHUSDT": "ETH-USD",
+    "SOLUSDT": "SOL-USD",
+    "BNBUSDT": "BNB-USD",
+    "XRPUSDT": "XRP-USD",
+    "ADAUSDT": "ADA-USD",
+    "DOTUSDT": "DOT-USD",
+    "DOGEUSDT": "DOGE-USD",
+    "SHIBUSDT": "SHIB-USD",
+    "AVAXUSDT": "AVAX-USD",
+    "LINKUSDT": "LINK-USD",
+    # මේ විදිහට ඔයාට කැමති කොයින්ස් 30ක් සම්පූර්ණ වෙනකන් නම සහ Yahoo ticker එක දාන්න...
 }
 
 TIMEFRAME = "1h"      # H1 Timeframe

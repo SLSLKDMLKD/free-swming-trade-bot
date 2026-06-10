@@ -27,7 +27,9 @@ INITIAL_BALANCE = 10000.0
 RISK_PERCENT = 0.02
 
 # Binance එකෙන් ලයිව් දුවන්න පුළුවන් Crypto විතරක් නිසා ප්‍රධාන Crypto යුගල 2ක් ඇතුළත් කර ඇත.
-SYMBOLS = ['btcusdt', 'ethusdt']
+SYMBOLS = ['btcusdt', 'ethusdt', 'solusdt', 'bnbusdt', 'xrpusdt', 
+    'adausdt', 'dotusdt', 'dogeusdt', 'shibusdt', 'avaxusdt', 
+    'linkusdt', 'maticusdt', 'ltcusdt', 'uniusdt', 'trxusdt']
 
 # ==========================================
 # HTML TEMPLATE (FLASK UI)
